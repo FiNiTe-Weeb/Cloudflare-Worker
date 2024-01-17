@@ -8,6 +8,11 @@ import pointercrateLoad from "pointercrateLoad.js";
 const allowedLists=["test","pointercrate","insaneDemonList","lowRefreshRateList","aredl","challengeList"];
 const allowedEvents=["initLoad","apiGetPlayer","apiSearchPlayer"];
 const allowedTargets=["score","leaderboard"];
+const JSON_HEADERS=new Headers({
+	"content-type": "application/json",
+	"Access-Control-Allow-Headers": "*",
+	"Access-Control-Allow-Origin": "*",
+});
 
 export default {
 	/**
@@ -38,6 +43,12 @@ export default {
 	 * @returns {Promise<Response>}
 	 */
 	async fetch(request, env, ctx) {
+		if(request.method=="OPTIONS"){
+			let headers=new Headers();
+			headers.append("Access-Control-Allow-Headers","*");
+			headers.append("Access-Control-Allow-Origin","*");
+			return new Response("hi",{headers:headers});
+		}
 		const url = new URL(request.url);
 		let path=url.pathname.substring(1);
 		//console.log(`Hello ${navigator.userAgent} at path ${url.pathname}!`);
@@ -115,9 +126,7 @@ async function handleApi(request,env,ctx,splitPath){
 			...requestBody,
 			count:listData.event.totals[event]
 		})+",\"status\":\"201\"}", {
-			headers: {
-				"content-type": "application/json",
-			},
+			headers:JSON_HEADERS,
 			status:201
 		});
 	}catch(exception){
@@ -136,7 +145,6 @@ async function handleApi(request,env,ctx,splitPath){
  * @returns {Promise<Response>}
  */
 async function handleRankCache(request,env,ctx,splitPath){
-	return badReq("Temporarily disabled endpoint");
 	let list=splitPath[0];
 	let target=splitPath[1];
 	if(list==undefined||list==""){
@@ -148,9 +156,9 @@ async function handleRankCache(request,env,ctx,splitPath){
 	if(allowedTargets.indexOf(target)<0){
 		return badReq("Invalid target, allowed targets: "+allowedTargets.join(', '));
 	}
-	if(target=="leaderboard"){
-		return badReq("Temporarily disabled target");
-	}
+	//if(target=="leaderboard"){
+	//	return badReq("Temporarily disabled target");
+	//}
 	let rankCache=await env.rankingsCache.get(list+"-"+target);
 	if(rankCache==null){
 		let responseDat={
@@ -158,12 +166,12 @@ async function handleRankCache(request,env,ctx,splitPath){
 			status:404
 		};
 		return new Response(JSON.stringify(responseDat),{
-			headers: {"content-type": "application/json",},
+			headers:JSON_HEADERS,
 			status:404
 		});
 	}
 	return new Response(rankCache,{
-		headers: {"content-type": "application/json",},
+		headers:JSON_HEADERS,
 		status:200
 	});
 }
@@ -178,7 +186,7 @@ function badReq(msgOverride="Nuh uh! Bad Request!!"){
 		status:400
 	};
 	return new Response(JSON.stringify(responseDat), {
-		headers: {"content-type": "application/json",},
+		headers:JSON_HEADERS,
 		status:400
 	});
 }
