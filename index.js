@@ -1,11 +1,14 @@
 import welcome from "welcome.html";
 import pointercrateLoad from "pointercrateLoad.js";
+import aredlLoad from "./aredlLoad.js";
 
 /**
  * @typedef {Object} Env
  */
 
-const allowedLists=["test","pointercrate","insaneDemonList","lowRefreshRateList","aredl","challengeList"];
+const AREDL="aredl";
+const POINTERCRATE="pointercrate";
+const allowedLists=["test",POINTERCRATE,"insaneDemonList","lowRefreshRateList",AREDL,"challengeList"];
 const allowedEvents=["initLoad","apiGetPlayer","apiSearchPlayer"];
 const allowedTargets=["score","leaderboard"];
 const JSON_HEADERS=new Headers({
@@ -61,6 +64,8 @@ export default {
 				return await handleApi(request,env,ctx,splitPath.slice(1));
 			case "rankcache":
 				return await handleRankCache(request,env,ctx,splitPath.slice(1));
+			case "test":
+				//return await handleTest(request,env,ctx,splitPath.slice(1));
 		}
 
 		return badReq();
@@ -72,16 +77,47 @@ export default {
 	 */
 	async scheduled(event, env, ctx) {
 		console.log(event.scheduledTime);
-		let leaderboard=await pointercrateLoad.pageLoader(0,100);
-		let pointsArr=[];
-		for(let i=0;i<leaderboard.length;i++){
-			pointsArr.push(leaderboard[i].score);
-		}
-		console.log(pointsArr);
-		await env.rankingsCache.put("pointercrate-leaderboard",JSON.stringify(leaderboard));
-		await env.rankingsCache.put("pointercrate-score",JSON.stringify(pointsArr));
+		console.log(event.cron.length);
+		switch (event.cron) {
+			case "*0 0 * * *":
+				await update(env,POINTERCRATE);
+				break;
+			case "*5 0 * * *":
+				await update(env,AREDL);
+				break;
+		  }
 	},
 };
+
+
+
+/**
+ * @param {Env} env
+ * @param {string} list
+ */
+async function update(env,list){
+	let leaderboard=null;
+	console.log("Running update for "+list);
+	switch(list){
+		case AREDL:
+			leaderboard=await aredlLoad.pageLoader();
+			break;
+		case POINTERCRATE:
+			leaderboard=await pointercrateLoad.pageLoader(0,100);
+			break;
+		default:
+			console.error("update function given bad list: ",list);
+			badReq();
+	}
+	let pointsArr=[];
+	for(let i=0;i<leaderboard.length;i++){
+		pointsArr.push(leaderboard[i].points);
+	}
+	console.log(pointsArr.length);
+	await env.rankingsCache.put(list+"-leaderboard",JSON.stringify(leaderboard));
+	await env.rankingsCache.put(list+"-score",JSON.stringify(pointsArr));
+	console.log("Finished update for "+list);
+}
 
 /**
  * @param {Request} request
@@ -171,6 +207,27 @@ async function handleRankCache(request,env,ctx,splitPath){
 		});
 	}
 	return new Response(rankCache,{
+		headers:JSON_HEADERS,
+		status:200
+	});
+}
+
+/**
+ * @param {Request} request
+ * @param {Env} env
+ * @param {ExecutionContext} ctx
+ * @param {Array} splitPath
+ * @returns {Promise<Response>}
+ */
+async function handleTest(request,env,ctx,splitPath){
+
+	//let pointercrateLeaderboard=await pointercrateLoad.pageLoader(0,100);
+	//let aredlLeaderboard=await aredlLoad.pageLoader(0,100,300);
+	//let aredlLeaderboard=await aredlLoad.pageLoader();
+	//console.log(aredlLeaderboard);
+
+	//await update(env,AREDL);
+	return new Response(JSON.stringify({}),{
 		headers:JSON_HEADERS,
 		status:200
 	});
